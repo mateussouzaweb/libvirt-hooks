@@ -143,8 +143,8 @@ func GetDevices() ([]*Device, error) {
 				ID:          deviceID,
 				Path:        devicePath,
 				Type:        deviceType,
-				Vendor:      vendor,
-				Product:     product,
+				Vendor:      strings.ReplaceAll(vendor, "0x", ""),
+				Product:     strings.ReplaceAll(product, "0x", ""),
 				Description: description,
 			}
 
