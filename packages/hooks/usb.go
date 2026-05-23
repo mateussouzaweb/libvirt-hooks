@@ -44,7 +44,7 @@ func USBHandleAction(action string, busNumber string, devNumber string, product 
 
 	// If no active VMs, skip processing
 	if len(stateTmp.VMs) == 0 {
-		return fmt.Errorf("no active VMs found")
+		return nil
 	}
 
 	// Redirect USB to the first running VM
