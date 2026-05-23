@@ -2,6 +2,7 @@ package system
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -23,11 +24,42 @@ func GetUSBs(device *Device) ([]*USB, error) {
 
 	USBs := make([]*USB, 0)
 
-	// Look for USB sub-devices: <device>/usb*, excluding usbmon
+	// Look for USB root devices: <device>/usb*
 	pattern := fmt.Sprintf("%s/usb[0-9]*", device.Path)
-	results, err := FindSysFSFolders(pattern)
+	roots, err := FindSysFSFolders(pattern)
 	if err != nil {
 		return USBs, fmt.Errorf("error searching for USB devices: %w", err)
+	}
+
+	// Walk through the root tree to find all USB devices under the given device path
+	// A USB device is identified by the presence of idVendor and product files
+	results := make([]string, 0)
+	for _, root := range roots {
+		err := filepath.WalkDir(root, func(path string, entry os.DirEntry, err error) error {
+			if err != nil {
+				return nil // Skip unreadable entries
+			}
+			if !entry.IsDir() {
+				return nil
+			}
+
+			idVendorPath := filepath.Join(path, "idVendor")
+			if _, err := os.Stat(idVendorPath); err != nil {
+				return nil // Not a valid USB device, skip
+			}
+
+			productPath := filepath.Join(path, "product")
+			if _, err := os.Stat(productPath); err != nil {
+				return nil // Not a valid USB device, skip
+			}
+
+			results = append(results, path)
+			return nil
+		})
+
+		if err != nil {
+			return USBs, fmt.Errorf("error searching for USB devices: %w", err)
+		}
 	}
 
 	// Process each found USB device path
