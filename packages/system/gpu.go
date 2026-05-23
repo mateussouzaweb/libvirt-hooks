@@ -50,7 +50,7 @@ func GetGPUs() ([]*GPU, error) {
 		GPU := &GPU{
 			Primary:      false,
 			Manufacturer: manufacturer,
-			ResetMethod:  "device_specific",
+			ResetMethod:  "",
 			VideoDevice:  videoDevice,
 			VideoDriver:  &Driver{},
 			AudioDevice:  &Device{},
@@ -93,6 +93,16 @@ func GetGPUs() ([]*GPU, error) {
 			return GPUs, fmt.Errorf("error reading resizable BAR for device %s: %w", GPU.VideoDevice.ID, err)
 		} else {
 			GPU.ResizableBAR = resizableBAR
+		}
+
+		// Read reset method from video device
+		// Audio device should have the same reset method since they share the same PCI ID
+		resetMethodPath := fmt.Sprintf("%s/reset_method", GPU.VideoDevice.Path)
+		resetMethod, err := ReadSysFSValue(resetMethodPath)
+		if err != nil {
+			return GPUs, fmt.Errorf("error reading reset method for device %s: %w", GPU.VideoDevice.ID, err)
+		} else {
+			GPU.ResetMethod = resetMethod
 		}
 
 		// Mark the first GPU as primary
