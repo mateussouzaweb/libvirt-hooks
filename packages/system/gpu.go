@@ -120,23 +120,6 @@ func GetGPUs() ([]*GPU, error) {
 // ReleaseGPU will release the given GPU from system
 func ReleaseGPU(GPU *GPU) error {
 
-	// Apply device_specific reset method for AMD GPUs
-	if GPU.VideoDriver.Name == "amdgpu" && GPU.ResetMethod == "reset" {
-		videoResetMethodPath := fmt.Sprintf("%s/reset_method", GPU.VideoDevice.Path)
-		err := WriteSysFSValue(videoResetMethodPath, "device_specific")
-		if err != nil {
-			return fmt.Errorf("error setting video reset method for device %s: %w", GPU.VideoDevice.ID, err)
-		}
-
-		audioResetMethodPath := fmt.Sprintf("%s/reset_method", GPU.AudioDevice.Path)
-		err = WriteSysFSValue(audioResetMethodPath, "device_specific")
-		if err != nil {
-			return fmt.Errorf("error setting audio reset method for device %s: %w", GPU.AudioDevice.ID, err)
-		}
-
-		time.Sleep(time.Second)
-	}
-
 	// Unbind video from driver at system
 	releasedDrivers := []string{"", "pcieport", "vfio-pci"}
 	if !slices.Contains(releasedDrivers, GPU.VideoDriver.Name) {
