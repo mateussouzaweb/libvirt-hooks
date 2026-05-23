@@ -90,7 +90,7 @@ func QemuPrepareBegin(machine *system.VirtualMachine) error {
 				continue
 			}
 
-			system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("GPU detected with ID %s [primary: %t]", GPU.VideoDevice.ID, GPU.Primary))
+			system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("GPU detected with ID %s primary=%t", GPU.VideoDevice.ID, GPU.Primary))
 
 			// When GPU is primary, stop display manager and unbind virtual consoles and frame buffers before releasing the GPU to avoid issues with the display server and potential crashes
 			if GPU.Primary {
@@ -208,7 +208,7 @@ func QemuReleaseEnd(machine *system.VirtualMachine) error {
 				continue
 			}
 
-			system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("GPU detected with ID %s [primary: %t]", GPU.VideoDevice.ID, GPU.Primary))
+			system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("GPU detected with ID %s primary=%t", GPU.VideoDevice.ID, GPU.Primary))
 
 			system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("restoring GPU %s", GPU.VideoDevice.ID))
 			err = system.RestoreGPU(GPU)
