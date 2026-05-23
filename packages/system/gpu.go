@@ -31,6 +31,8 @@ func GetGPUs() ([]*GPU, error) {
 	// Video and audio devices are often separate
 	// We need to check for both and associate them based on their PCI IDs
 	GPUs := make([]*GPU, 0)
+	primary := true
+
 	for _, videoDevice := range devices {
 		if videoDevice.Type != TYPE_VGA {
 			continue
@@ -46,7 +48,7 @@ func GetGPUs() ([]*GPU, error) {
 		}
 
 		GPU := &GPU{
-			Primary:      true,
+			Primary:      false,
 			Manufacturer: manufacturer,
 			ResetMethod:  "device_specific",
 			VideoDevice:  videoDevice,
@@ -91,6 +93,12 @@ func GetGPUs() ([]*GPU, error) {
 			return GPUs, fmt.Errorf("error reading resizable BAR for device %s: %w", GPU.VideoDevice.ID, err)
 		} else {
 			GPU.ResizableBAR = resizableBAR
+		}
+
+		// Mark the first GPU as primary
+		if primary {
+			GPU.Primary = true
+			primary = false
 		}
 
 		GPUs = append(GPUs, GPU)
