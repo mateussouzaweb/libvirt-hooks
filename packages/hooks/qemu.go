@@ -3,6 +3,7 @@ package hooks
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"syscall"
 	"time"
 
@@ -21,7 +22,6 @@ func QemuPrepareBegin(machine *system.VirtualMachine) error {
 	}
 
 	// Add the current virtual machine to the state
-	machine.Status = "running"
 	stateTmp.VMs = append(stateTmp.VMs, machine)
 
 	// Write updated state back to file to be used by release hook
@@ -51,40 +51,23 @@ func QemuPrepareBegin(machine *system.VirtualMachine) error {
 	// Read VCPUPin specs to extract which CPUs should be preserved
 	preserveCPUs := []*system.CPU{}
 	for _, CPU := range CPUs {
-		found := false
-		for _, vCPUPin := range machine.Specs.CPUTune.VCPUPin {
-			if vCPUPin.CPUSet == CPU.Number {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(machine.CPUSet, CPU.Number)
 		if !found {
 			preserveCPUs = append(preserveCPUs, CPU)
 		}
 	}
 
 	// Preserve CPU cores for the host system by allowing only the cores that are not used by the VM
-	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", "preserving CPU cores for host system")
-	err = system.SetAllowedCPUs(preserveCPUs)
-	if err != nil {
-		return fmt.Errorf("error occurred while setting allowed CPUs: %v", err)
+	if len(preserveCPUs) > 0 {
+		system.WriteLog(system.LOG_NOTICE, "qemu-hooks", "preserving CPU cores for host system")
+		err = system.SetAllowedCPUs(preserveCPUs)
+		if err != nil {
+			return fmt.Errorf("error occurred while setting allowed CPUs: %v", err)
+		}
 	}
 
 	// Check for GPU devices and attach if specified
-	for _, hostDev := range machine.Specs.Devices.Hostdevs {
-		if hostDev.SubsysPCI == nil {
-			continue
-		}
-
-		address := hostDev.SubsysPCI.Source.Address
-		deviceID := fmt.Sprintf(
-			"%04x:%02x:%02x.%x",
-			*address.Domain,
-			*address.Bus,
-			*address.Slot,
-			*address.Function,
-		)
-
+	for _, deviceID := range machine.PCISet {
 		for _, GPU := range GPUs {
 			if GPU.VideoDevice.ID != deviceID {
 				continue
@@ -189,20 +172,7 @@ func QemuReleaseEnd(machine *system.VirtualMachine) error {
 
 	// Release GPU if it was attached
 	// Check for GPU devices and detach if specified
-	for _, hostDev := range machine.Specs.Devices.Hostdevs {
-		if hostDev.SubsysPCI == nil {
-			continue
-		}
-
-		address := hostDev.SubsysPCI.Source.Address
-		deviceID := fmt.Sprintf(
-			"%04x:%02x:%02x.%x",
-			*address.Domain,
-			*address.Bus,
-			*address.Slot,
-			*address.Function,
-		)
-
+	for _, deviceID := range machine.PCISet {
 		for _, GPU := range GPUs {
 			if GPU.VideoDevice.ID != deviceID {
 				continue

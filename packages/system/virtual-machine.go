@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	"libvirt.org/go/libvirtxml"
 )
@@ -12,11 +13,13 @@ type Specs = libvirtxml.Domain
 
 // VirtualMachine represents a virtual machine
 type VirtualMachine struct {
-	Name   string `json:"name"`
-	UUID   string `json:"uuid"`
-	Status string `json:"status"`
-	XML    string `json:"-"`
-	Specs  Specs  `json:"-"`
+	Name   string   `json:"name"`
+	UUID   string   `json:"uuid"`
+	CPUSet []string `json:"cpuSet"`
+	PCISet []string `json:"pciSet"`
+	USBSet []string `json:"usbSet"`
+	XML    string   `json:"-"`
+	Specs  Specs    `json:"-"`
 }
 
 // ReadVirtualMachineXMLFromStdin reads data from stdin and returns its content
@@ -62,7 +65,9 @@ func ReadVirtualMachine(guestName string, fromStdin bool) (*VirtualMachine, erro
 	machine := &VirtualMachine{
 		Name:   "",
 		UUID:   "",
-		Status: "",
+		CPUSet: []string{},
+		PCISet: []string{},
+		USBSet: []string{},
 		XML:    "",
 		Specs:  Specs{},
 	}
@@ -98,6 +103,66 @@ func ReadVirtualMachine(guestName string, fromStdin bool) (*VirtualMachine, erro
 
 	machine.Name = machine.Specs.Name
 	machine.UUID = machine.Specs.UUID
+
+	// Read CPU set
+	if machine.Specs.CPUTune != nil {
+		for _, vCPUPin := range machine.Specs.CPUTune.VCPUPin {
+			if vCPUPin.CPUSet != "" {
+				machine.CPUSet = append(machine.CPUSet, vCPUPin.CPUSet)
+			}
+		}
+	}
+
+	// Read PCI devices
+	if machine.Specs.Devices != nil {
+		for _, hostDev := range machine.Specs.Devices.Hostdevs {
+			if hostDev.SubsysPCI == nil {
+				continue
+			}
+			if hostDev.SubsysPCI.Source == nil {
+				continue
+			}
+			if hostDev.SubsysPCI.Source.Address == nil {
+				continue
+			}
+
+			address := hostDev.SubsysPCI.Source.Address
+			deviceID := fmt.Sprintf(
+				"%04x:%02x:%02x.%x",
+				*address.Domain,
+				*address.Bus,
+				*address.Slot,
+				*address.Function,
+			)
+
+			machine.PCISet = append(machine.PCISet, deviceID)
+		}
+	}
+
+	// Read USB devices
+	if machine.Specs.Devices != nil {
+		for _, hostDev := range machine.Specs.Devices.Hostdevs {
+			if hostDev.SubsysUSB == nil {
+				continue
+			}
+			if hostDev.SubsysUSB.Source == nil {
+				continue
+			}
+			if hostDev.SubsysUSB.Source.Vendor == nil {
+				continue
+			}
+			if hostDev.SubsysUSB.Source.Product == nil {
+				continue
+			}
+
+			vendor := *hostDev.SubsysUSB.Source.Vendor
+			product := *hostDev.SubsysUSB.Source.Product
+			deviceID := fmt.Sprintf("%s:%s", vendor.ID, product.ID)
+			deviceID = strings.ReplaceAll(deviceID, "0x", "")
+
+			machine.USBSet = append(machine.USBSet, deviceID)
+		}
+	}
 
 	return machine, nil
 }
