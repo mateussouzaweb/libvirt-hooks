@@ -55,7 +55,7 @@ func UnbindFrameBuffer(frameBuffer *FrameBuffer) error {
 	unbindPath := fmt.Sprintf("%s/unbind", frameBuffer.Path)
 	err := WriteSysFSValue(unbindPath, frameBuffer.Name)
 	if err != nil {
-		return fmt.Errorf("Error unbinding framebuffer: %v\n", err)
+		return fmt.Errorf("error unbinding framebuffer: %w", err)
 	}
 
 	return nil
@@ -71,7 +71,7 @@ func BindFrameBuffer(frameBuffer *FrameBuffer) error {
 	bindPath := fmt.Sprintf("%s/bind", frameBuffer.Path)
 	err := WriteSysFSValue(bindPath, frameBuffer.Name)
 	if err != nil {
-		return fmt.Errorf("Error binding framebuffer: %v\n", err)
+		return fmt.Errorf("error binding framebuffer: %w", err)
 	}
 
 	return nil

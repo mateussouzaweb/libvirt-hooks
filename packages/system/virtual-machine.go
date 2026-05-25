@@ -27,11 +27,11 @@ func ReadVirtualMachineXMLFromStdin() (string, error) {
 
 	stat, err := os.Stdin.Stat()
 	if err != nil {
-		return "", fmt.Errorf("Error reading stdin: %v\n", err)
+		return "", fmt.Errorf("error reading stdin: %w", err)
 	} else if (stat.Mode() & os.ModeCharDevice) == 0 {
 		content, err := io.ReadAll(os.Stdin)
 		if err != nil {
-			return "", fmt.Errorf("Error reading stdin: %v\n", err)
+			return "", fmt.Errorf("error reading stdin: %w", err)
 		}
 		return string(content), nil
 	}

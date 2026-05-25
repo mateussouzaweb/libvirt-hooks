@@ -83,7 +83,7 @@ func HandleCommand(args []string) error {
 		// Read virtual machine information from stdin or XML file
 		machine, err := system.ReadVirtualMachine(guestName, true)
 		if err != nil {
-			return fmt.Errorf("Error reading virtual machine info: %w", err)
+			return fmt.Errorf("error reading virtual machine info: %w", err)
 		}
 
 		// Handle known QEMU events and states
@@ -117,7 +117,7 @@ func HandleCommand(args []string) error {
 	}
 
 	// Unknown command
-	return fmt.Errorf("Unknown command: %s", command)
+	return fmt.Errorf("unknown command: %s", command)
 }
 
 // Main command
