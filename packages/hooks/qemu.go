@@ -16,16 +16,24 @@ func QemuPrepareBegin(machine *system.VirtualMachine) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook prepare begin for VM %s", machine.Name))
 
 	// Read temporary state
-	stateTmp, err := state.ReadTemporaryState()
+	stateTmp, err := state.ReadState(state.STATE_FILE)
 	if err != nil {
-		return err
+		return fmt.Errorf("error occurred while reading state: %v", err)
+	}
+
+	// Populate state with system information if not already populated
+	if !stateTmp.Populated {
+		err := state.PopulateState(stateTmp)
+		if err != nil {
+			return fmt.Errorf("error occurred while populating state: %v", err)
+		}
 	}
 
 	// Add the current virtual machine to the state
 	stateTmp.VMs = append(stateTmp.VMs, machine)
 
 	// Write updated state back to file to be used by release hook
-	err = state.SaveTemporaryState(stateTmp)
+	err = state.WriteState(stateTmp, state.STATE_FILE)
 	if err != nil {
 		return fmt.Errorf("error occurred while writing state file: %v", err)
 	}
@@ -142,24 +150,44 @@ func QemuReleaseEnd(machine *system.VirtualMachine) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook release end for VM %s", machine.Name))
 
 	// Read current state from file to get system information
-	stateTmp, err := state.ReadTemporaryState()
+	stateTmp, err := state.ReadState(state.STATE_FILE)
 	if err != nil {
-		return err
+		return fmt.Errorf("error occurred while reading state file: %v", err)
 	}
 
-	// Remove the current virtual machine from the state
+	// If there is no state data, skip processing
+	if !stateTmp.Populated {
+		return nil
+	}
+
+	// Detect and remove the current virtual machine from the state
+	foundMachine := false
 	for i, vm := range stateTmp.VMs {
 		if vm.Name == machine.Name {
+			foundMachine = true
 			stateTmp.VMs = append(stateTmp.VMs[:i], stateTmp.VMs[i+1:]...)
 			break
 		}
 	}
 
-	// Write updated state
-	// When there is no more running VMs, the file will be removed
-	err = state.SaveTemporaryState(stateTmp)
-	if err != nil {
-		return err
+	// If the machine was not found in the state, skip processing
+	if !foundMachine {
+		return nil
+	}
+
+	// Write or remove state file
+	// When there are no more running VMs, remove the state file
+	// When there are running VMs, the file will be updated
+	if len(stateTmp.VMs) == 0 {
+		err = state.RemoveState(state.STATE_FILE)
+		if err != nil {
+			return fmt.Errorf("error occurred while removing state file: %v", err)
+		}
+	} else {
+		err = state.WriteState(stateTmp, state.STATE_FILE)
+		if err != nil {
+			return fmt.Errorf("error occurred while writing state file: %v", err)
+		}
 	}
 
 	// Extract necessary information from state to perform required actions

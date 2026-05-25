@@ -8,8 +8,12 @@ import (
 	"github.com/mateussouzaweb/libvirt-hooks/packages/system"
 )
 
+// Location of the temporary state file
+const STATE_FILE = "/tmp/qemu-state.json"
+
 // State represents the current state of the system and virtual machines
 type State struct {
+	Populated       bool                     `json:"populated"`
 	Devices         []*system.Device         `json:"devices"`
 	CPUs            []*system.CPU            `json:"cpus"`
 	GPUs            []*system.GPU            `json:"gpus"`
@@ -23,6 +27,7 @@ type State struct {
 // NewState creates and populates a state with system information
 func NewState() *State {
 	return &State{
+		Populated:       false,
 		Devices:         make([]*system.Device, 0),
 		CPUs:            make([]*system.CPU, 0),
 		GPUs:            make([]*system.GPU, 0),
@@ -41,19 +46,19 @@ func ReadState(source string) (*State, error) {
 
 	_, err := os.Stat(source)
 	if err != nil && !os.IsNotExist(err) {
-		return state, fmt.Errorf("Error reading state file: %v\n", err)
+		return state, fmt.Errorf("error checking state file: %w", err)
 	} else if os.IsNotExist(err) {
 		return state, nil
 	}
 
 	content, err := os.ReadFile(source)
 	if err != nil {
-		return state, fmt.Errorf("Error reading state file: %v\n", err)
+		return state, fmt.Errorf("error reading state file: %w", err)
 	}
 
 	err = json.Unmarshal(content, state)
 	if err != nil {
-		return state, fmt.Errorf("Error unmarshaling state file: %v\n", err)
+		return state, fmt.Errorf("error unmarshaling state file: %w", err)
 	}
 
 	return state, nil
@@ -64,12 +69,30 @@ func WriteState(state *State, destination string) error {
 
 	result, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		return fmt.Errorf("Error writing state: %w", err)
+		return fmt.Errorf("error writing state: %w", err)
 	}
 
 	err = os.WriteFile(destination, result, 0666)
 	if err != nil {
-		return fmt.Errorf("Error writing state file: %w", err)
+		return fmt.Errorf("error writing state file: %w", err)
+	}
+
+	return nil
+}
+
+// RemoveState removes the state file if it exists
+func RemoveState(source string) error {
+
+	_, err := os.Stat(source)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("error checking state file: %w", err)
+	} else if os.IsNotExist(err) {
+		return nil
+	}
+
+	err = os.Remove(source)
+	if err != nil {
+		return fmt.Errorf("error removing state file: %w", err)
 	}
 
 	return nil
@@ -131,6 +154,7 @@ func PopulateState(state *State) error {
 		state.DisplayManager = displayManager
 	}
 
+	state.Populated = true
 	return nil
 }
 
@@ -140,12 +164,12 @@ func DumpState() error {
 	state := NewState()
 	err := PopulateState(state)
 	if err != nil {
-		return fmt.Errorf("Error populating state: %w", err)
+		return fmt.Errorf("error populating state: %w", err)
 	}
 
 	result, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		return fmt.Errorf("Error dumping state: %w", err)
+		return fmt.Errorf("error dumping state: %w", err)
 	}
 
 	fmt.Println(string(result))

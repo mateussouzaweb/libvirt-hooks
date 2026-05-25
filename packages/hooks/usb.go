@@ -37,13 +37,13 @@ func USBHandleAction(action string, busNumber string, devNumber string, product 
 	productID := fmt.Sprintf("%04x", productNumber)
 
 	// Read temporary state
-	stateTmp, err := state.ReadTemporaryState()
+	stateTmp, err := state.ReadState(state.STATE_FILE)
 	if err != nil {
 		return fmt.Errorf("error reading temporary state: %w", err)
 	}
 
-	// If no active VMs, skip processing
-	if len(stateTmp.VMs) == 0 {
+	// If there is no state date or no active VMs running, skip processing
+	if !stateTmp.Populated || len(stateTmp.VMs) == 0 {
 		return nil
 	}
 
