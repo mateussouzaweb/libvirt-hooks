@@ -9,6 +9,7 @@ import (
 
 // USB represents a USB device on the system
 type USB struct {
+	Key          string `json:"key"`
 	ID           string `json:"id"`
 	Parent       string `json:"parent"`
 	BusNumber    string `json:"busNumber"`
@@ -105,10 +106,12 @@ func GetUSBs(device *Device) ([]*USB, error) {
 			continue
 		}
 
+		key := filepath.Base(USBPath)
 		deviceID := fmt.Sprintf("%s:%s", vendor, product)
 		deviceID = strings.ReplaceAll(deviceID, "0x", "")
 
 		USB := &USB{
+			Key:          key,
 			ID:           deviceID,
 			Parent:       device.ID,
 			BusNumber:    busNumber,
@@ -123,4 +126,28 @@ func GetUSBs(device *Device) ([]*USB, error) {
 	}
 
 	return USBs, nil
+}
+
+// UnbindUSB will unbind the given USB device from its current driver at system
+func UnbindUSB(USB *USB) error {
+
+	unbindPath := "/sys/bus/usb/drivers/usb/unbind"
+	err := WriteSysFSValue(unbindPath, USB.Key)
+	if err != nil {
+		return fmt.Errorf("error unbinding USB device %s: %w", USB.Key, err)
+	}
+
+	return nil
+}
+
+// BindUSB will bind the given USB device to the USB driver at system
+func BindUSB(USB *USB) error {
+
+	bindPath := "/sys/bus/usb/drivers/usb/bind"
+	err := WriteSysFSValue(bindPath, USB.Key)
+	if err != nil {
+		return fmt.Errorf("error binding USB device %s: %w", USB.Key, err)
+	}
+
+	return nil
 }

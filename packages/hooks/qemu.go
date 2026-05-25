@@ -166,6 +166,7 @@ func QemuReleaseEnd(machine *system.VirtualMachine) error {
 	VMs := stateTmp.VMs
 	CPUs := stateTmp.CPUs
 	GPUs := stateTmp.GPUs
+	USBs := stateTmp.USBs
 	displayManager := stateTmp.DisplayManager
 	virtualConsoles := stateTmp.VirtualConsoles
 	frameBuffers := stateTmp.FrameBuffers
@@ -238,6 +239,28 @@ func QemuReleaseEnd(machine *system.VirtualMachine) error {
 		err = system.SetAllowedCPUs([]*system.CPU{})
 		if err != nil {
 			return fmt.Errorf("error occurred while setting allowed CPUs: %v", err)
+		}
+	}
+
+	// Reconnect USB devices that were detached from the VM
+	// Necessary because some devices may not be properly released from VM
+	for _, USBDevice := range machine.USBSet {
+		for _, USB := range USBs {
+			if USB.ID != USBDevice {
+				continue
+			}
+
+			system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("restoring USB device %s", USB.ID))
+
+			err := system.UnbindUSB(USB)
+			if err != nil {
+				return fmt.Errorf("error occurred while restoring USB device %s: %v", USB.ID, err)
+			}
+
+			err = system.BindUSB(USB)
+			if err != nil {
+				return fmt.Errorf("error occurred while restoring USB device %s: %v", USB.ID, err)
+			}
 		}
 	}
 
