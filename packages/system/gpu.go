@@ -154,6 +154,9 @@ func ReleaseGPU(GPU *GPU) error {
 // RestoreGPU will restore the given GPU to system
 func RestoreGPU(GPU *GPU) error {
 
+	// Prevent restoring ResizableBAR to avoid busy error
+	GPU.ResizableBAR.Available = false
+
 	// Restore ResizableBAR value to GPU
 	if GPU.ResizableBAR.Available {
 		maxSize := GPU.ResizableBAR.Sizes[len(GPU.ResizableBAR.Sizes)-1]
