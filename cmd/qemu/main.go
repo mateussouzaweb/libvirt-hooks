@@ -29,7 +29,7 @@ func PrintHelp() error {
 	fmt.Printf("  state - Read and display system state.\n")
 	fmt.Printf("  install - Install udev rules for USB handling.\n")
 	fmt.Printf("  uninstall - Uninstall udev rules for USB handling.\n")
-	fmt.Printf("  usb - Handle udev USB actions on QEMU.\n")
+	fmt.Printf("  usb - Handle udev USB actions on QEMU based on environment variables.\n")
 	fmt.Printf("  <guest> <event> <state> - Handle libvirt hooks for QEMU events.\n")
 
 	return nil
