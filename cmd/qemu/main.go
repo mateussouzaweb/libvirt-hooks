@@ -12,6 +12,8 @@ import (
 	"github.com/mateussouzaweb/libvirt-hooks/packages/system"
 )
 
+var version = "1.0.0"
+
 // PrintHelp prints usage information for the command-line tool
 func PrintHelp() error {
 
@@ -20,6 +22,7 @@ func PrintHelp() error {
 		return fmt.Errorf("error getting current script path: %w", err)
 	}
 
+	fmt.Printf("Libvirt hooks - Version %s\n", version)
 	fmt.Printf("Usage: %s <command> [args]\n", scriptPath)
 	fmt.Printf("Commands:\n")
 	fmt.Printf("  help - Show this help message.\n")
