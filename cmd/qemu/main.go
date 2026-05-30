@@ -12,7 +12,7 @@ import (
 	"github.com/mateussouzaweb/libvirt-hooks/packages/system"
 )
 
-var version = "1.0.1"
+var version = "1.0.2"
 
 // PrintHelp prints usage information for the command-line tool
 func PrintHelp() error {
