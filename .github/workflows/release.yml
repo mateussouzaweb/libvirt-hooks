@@ -104,7 +104,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           TAG="${{ needs.extract-information.outputs.tag }}"
-          FILES=$(ls -1 bin/nicedeck-* | xargs)
+          FILES=$(ls -1 bin/qemu-* | xargs)
           echo "Uploading files: $FILES"
           set -- $FILES
           gh release upload "$TAG" "$@" --clobber
