@@ -43,10 +43,11 @@ Go to the project RELEASES page and download the latest version of the script fo
 
 ```bash
 # Download compiled binary
-wget https://github.com/mateussouzaweb/libvirt-hooks/releases
+REPOSITORY="https://github.com/mateussouzaweb/libvirt-hooks"
+sudo wget $REPOSITORY/releases/latest/download/qemu-amd64 -O ./qemu
 
 # Move binary to correct location
-sudo mv $FILE /etc/libvirt/hooks/qemu
+sudo mv qemu /etc/libvirt/hooks/qemu
 sudo chmod +x /etc/libvirt/hooks/qemu
 
 # Install udev rules
