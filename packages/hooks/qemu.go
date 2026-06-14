@@ -12,31 +12,12 @@ import (
 )
 
 // QemuPrepareBegin handles prepare begin qemu hook
-func QemuPrepareBegin(machine *system.VirtualMachine) error {
+func QemuPrepareBegin(machine *system.VirtualMachine, stateTmp *state.State) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook prepare begin for VM %s", machine.Name))
 
-	// Read temporary state
-	stateTmp, err := state.ReadState(state.STATE_FILE)
-	if err != nil {
-		return fmt.Errorf("error occurred while reading state: %v", err)
-	}
-
-	// Populate state with system information if not already populated
-	if !stateTmp.Populated {
-		err := state.PopulateState(stateTmp)
-		if err != nil {
-			return fmt.Errorf("error occurred while populating state: %v", err)
-		}
-	}
-
 	// Add the current virtual machine to the state
+	machine.Status = system.STATUS_PREPARING
 	stateTmp.VMs = append(stateTmp.VMs, machine)
-
-	// Write updated state back to file to be used by release hook
-	err = state.WriteState(stateTmp, state.STATE_FILE)
-	if err != nil {
-		return fmt.Errorf("error occurred while writing state file: %v", err)
-	}
 
 	// Extract necessary information from state to perform required actions
 	CPUs := stateTmp.CPUs
@@ -68,7 +49,7 @@ func QemuPrepareBegin(machine *system.VirtualMachine) error {
 	// Preserve CPU cores for the host system by allowing only the cores that are not used by the VM
 	if len(preserveCPUs) > 0 {
 		system.WriteLog(system.LOG_NOTICE, "qemu-hooks", "preserving CPU cores for host system")
-		err = system.SetAllowedCPUs(preserveCPUs)
+		err := system.SetAllowedCPUs(preserveCPUs)
 		if err != nil {
 			return fmt.Errorf("error occurred while setting allowed CPUs: %v", err)
 		}
@@ -106,7 +87,7 @@ func QemuPrepareBegin(machine *system.VirtualMachine) error {
 				if len(frameBuffers) > 0 {
 					for _, frameBuffer := range frameBuffers {
 						system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("unbinding frame buffer %s", frameBuffer.Name))
-						err = system.UnbindFrameBuffer(frameBuffer)
+						err := system.UnbindFrameBuffer(frameBuffer)
 						if err != nil {
 							return fmt.Errorf("error occurred while unbinding frame buffer: %v", err)
 						}
@@ -128,44 +109,64 @@ func QemuPrepareBegin(machine *system.VirtualMachine) error {
 }
 
 // StartBegin handles start begin qemu hook
-func QemuStartBegin(machine *system.VirtualMachine) error {
+func QemuStartBegin(machine *system.VirtualMachine, stateTmp *state.State) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook start begin for VM %s", machine.Name))
+	machine.Status = system.STATUS_STARTING
+
+	// Update the current virtual machine status in the state
+	for _, vm := range stateTmp.VMs {
+		if vm.Name == machine.Name {
+			vm.Status = system.STATUS_STARTING
+			break
+		}
+	}
+
 	return nil
 }
 
 // StartedBegin handles started begin qemu hook
-func QemuStartedBegin(machine *system.VirtualMachine) error {
+func QemuStartedBegin(machine *system.VirtualMachine, stateTmp *state.State) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook started begin for VM %s", machine.Name))
+	machine.Status = system.STATUS_RUNNING
+
+	// Update the current virtual machine status in the state
+	for _, vm := range stateTmp.VMs {
+		if vm.Name == machine.Name {
+			vm.Status = system.STATUS_RUNNING
+			break
+		}
+	}
+
 	return nil
 }
 
 // StoppedEnd handles stopped end qemu hook
-func QemuStoppedEnd(machine *system.VirtualMachine) error {
+func QemuStoppedEnd(machine *system.VirtualMachine, stateTmp *state.State) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook stopped end for VM %s", machine.Name))
+	machine.Status = system.STATUS_STOPPING
+
+	// Update the current virtual machine status in the state
+	for _, vm := range stateTmp.VMs {
+		if vm.Name == machine.Name {
+			vm.Status = system.STATUS_STOPPING
+			break
+		}
+	}
+
 	return nil
 }
 
 // ReleaseEnd handles release end qemu hook
-func QemuReleaseEnd(machine *system.VirtualMachine) error {
+func QemuReleaseEnd(machine *system.VirtualMachine, stateTmp *state.State) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook release end for VM %s", machine.Name))
+	machine.Status = system.STATUS_SHUTOFF
 
-	// Read current state from file to get system information
-	stateTmp, err := state.ReadState(state.STATE_FILE)
-	if err != nil {
-		return fmt.Errorf("error occurred while reading state file: %v", err)
-	}
-
-	// If there is no state data, skip processing
-	if !stateTmp.Populated {
-		return nil
-	}
-
-	// Detect and remove the current virtual machine from the state
+	// Update the current virtual machine status in the state
 	foundMachine := false
-	for i, vm := range stateTmp.VMs {
+	for _, vm := range stateTmp.VMs {
 		if vm.Name == machine.Name {
+			vm.Status = system.STATUS_SHUTOFF
 			foundMachine = true
-			stateTmp.VMs = append(stateTmp.VMs[:i], stateTmp.VMs[i+1:]...)
 			break
 		}
 	}
@@ -173,21 +174,6 @@ func QemuReleaseEnd(machine *system.VirtualMachine) error {
 	// If the machine was not found in the state, skip processing
 	if !foundMachine {
 		return nil
-	}
-
-	// Write or remove state file
-	// When there are no more running VMs, remove the state file
-	// When there are running VMs, the file will be updated
-	if len(stateTmp.VMs) == 0 {
-		err = state.RemoveState(state.STATE_FILE)
-		if err != nil {
-			return fmt.Errorf("error occurred while removing state file: %v", err)
-		}
-	} else {
-		err = state.WriteState(stateTmp, state.STATE_FILE)
-		if err != nil {
-			return fmt.Errorf("error occurred while writing state file: %v", err)
-		}
 	}
 
 	// Extract necessary information from state to perform required actions
@@ -210,7 +196,7 @@ func QemuReleaseEnd(machine *system.VirtualMachine) error {
 			system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("GPU detected with ID %s primary=%t", GPU.VideoDevice.ID, GPU.Primary))
 
 			system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("restoring GPU %s", GPU.VideoDevice.ID))
-			err = system.RestoreGPU(GPU)
+			err := system.RestoreGPU(GPU)
 			if err != nil {
 				if errors.Is(err, syscall.EBUSY) {
 					system.WriteLog(system.LOG_WARNING, "qemu-hooks", fmt.Sprintf("device %s is busy and cannot be fully restored", GPU.VideoDevice.ID))
@@ -252,8 +238,23 @@ func QemuReleaseEnd(machine *system.VirtualMachine) error {
 		}
 	}
 
-	// Restore CPU scaling governor to original values when the last VM has stopped
-	if len(VMs) == 0 {
+	// Count how many VMs are still running
+	runningStatuses := []string{
+		system.STATUS_PREPARING,
+		system.STATUS_STARTING,
+		system.STATUS_RUNNING,
+	}
+
+	runningVMs := 0
+	for _, vm := range VMs {
+		if slices.Contains(runningStatuses, vm.Status) {
+			runningVMs++
+		}
+	}
+
+	// Restore CPU scaling governor to original values
+	// Perform action only when there is no longer any running VM
+	if runningVMs == 0 {
 		system.WriteLog(system.LOG_NOTICE, "qemu-hooks", "restoring CPU scaling governor to original values")
 		for _, CPU := range CPUs {
 			err := system.SetCPUScalingGovernor(CPU)
@@ -264,7 +265,7 @@ func QemuReleaseEnd(machine *system.VirtualMachine) error {
 
 		// Allow all cores again
 		system.WriteLog(system.LOG_NOTICE, "qemu-hooks", "allowing all CPU cores again")
-		err = system.SetAllowedCPUs([]*system.CPU{})
+		err := system.SetAllowedCPUs([]*system.CPU{})
 		if err != nil {
 			return fmt.Errorf("error occurred while setting allowed CPUs: %v", err)
 		}
@@ -296,25 +297,25 @@ func QemuReleaseEnd(machine *system.VirtualMachine) error {
 }
 
 // MigrateBegin handles migrate begin qemu hook
-func QemuMigrateBegin(machine *system.VirtualMachine) error {
+func QemuMigrateBegin(machine *system.VirtualMachine, stateTmp *state.State) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook migrate begin for VM %s", machine.Name))
 	return nil
 }
 
 // RestoreBegin handles restore begin qemu hook
-func QemuRestoreBegin(machine *system.VirtualMachine) error {
+func QemuRestoreBegin(machine *system.VirtualMachine, stateTmp *state.State) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook restore begin for VM %s", machine.Name))
 	return nil
 }
 
 // ReconnectBegin handles reconnect begin qemu hook
-func QemuReconnectBegin(machine *system.VirtualMachine) error {
+func QemuReconnectBegin(machine *system.VirtualMachine, stateTmp *state.State) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook reconnect begin for VM %s", machine.Name))
 	return nil
 }
 
 // AttachBegin handles attach begin qemu hook
-func QemuAttachBegin(machine *system.VirtualMachine) error {
+func QemuAttachBegin(machine *system.VirtualMachine, stateTmp *state.State) error {
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("running hook attach begin for VM %s", machine.Name))
 	return nil
 }

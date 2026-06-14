@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -33,6 +34,67 @@ func PrintHelp() error {
 	fmt.Printf("  <guest> <event> <state> - Handle libvirt hooks for QEMU events.\n")
 
 	return nil
+}
+
+// QemuAction processes QEMU hook events and states for a given guest
+func QemuAction(guestName string, guestEvent string, guestState string) error {
+
+	// Read virtual machine information from stdin or XML file
+	machine, err := system.ReadVirtualMachine(guestName, true)
+	if err != nil {
+		return fmt.Errorf("error reading virtual machine info: %w", err)
+	}
+
+	// Read temporary state
+	stateTmp, err := state.ReadState(state.STATE_FILE)
+	if err != nil {
+		return fmt.Errorf("error reading temporary state: %w", err)
+	}
+
+	// If there is no state data, populate it
+	if !stateTmp.Populated {
+		err = state.PopulateState(stateTmp)
+		if err != nil {
+			return fmt.Errorf("error occurred while populating state: %v", err)
+		}
+	}
+
+	// Handle known QEMU events and states
+	if guestEvent == "prepare" && guestState == "begin" {
+		err = hooks.QemuPrepareBegin(machine, stateTmp)
+	}
+	if guestEvent == "start" && guestState == "begin" {
+		err = hooks.QemuStartBegin(machine, stateTmp)
+	}
+	if guestEvent == "started" && guestState == "begin" {
+		err = hooks.QemuStartedBegin(machine, stateTmp)
+	}
+	if guestEvent == "stopped" && guestState == "end" {
+		err = hooks.QemuStoppedEnd(machine, stateTmp)
+	}
+	if guestEvent == "release" && guestState == "end" {
+		err = hooks.QemuReleaseEnd(machine, stateTmp)
+	}
+	if guestEvent == "migrate" && guestState == "begin" {
+		err = hooks.QemuMigrateBegin(machine, stateTmp)
+	}
+	if guestEvent == "restore" && guestState == "begin" {
+		err = hooks.QemuRestoreBegin(machine, stateTmp)
+	}
+	if guestEvent == "reconnect" && guestState == "begin" {
+		err = hooks.QemuReconnectBegin(machine, stateTmp)
+	}
+	if guestEvent == "attach" && guestState == "begin" {
+		err = hooks.QemuAttachBegin(machine, stateTmp)
+	}
+
+	// Write updated state back to temporary file
+	writeErr := state.WriteState(stateTmp, state.STATE_FILE)
+	if writeErr != nil {
+		errors.Join(err, fmt.Errorf("error occurred while writing state file: %v", writeErr))
+	}
+
+	return err
 }
 
 // HandleCommand processes arguments and executes the appropriate actions
@@ -77,46 +139,11 @@ func HandleCommand(args []string) error {
 	}
 
 	// QEMU hooks have multiple commands
-	// Map all know commands to their respective handlers
 	if len(args) > 3 {
 		guestName := args[0]
 		guestEvent := args[1]
 		guestState := args[2]
-
-		// Read virtual machine information from stdin or XML file
-		machine, err := system.ReadVirtualMachine(guestName, true)
-		if err != nil {
-			return fmt.Errorf("error reading virtual machine info: %w", err)
-		}
-
-		// Handle known QEMU events and states
-		if guestEvent == "prepare" && guestState == "begin" {
-			return hooks.QemuPrepareBegin(machine)
-		}
-		if guestEvent == "start" && guestState == "begin" {
-			return hooks.QemuStartBegin(machine)
-		}
-		if guestEvent == "started" && guestState == "begin" {
-			return hooks.QemuStartedBegin(machine)
-		}
-		if guestEvent == "stopped" && guestState == "end" {
-			return hooks.QemuStoppedEnd(machine)
-		}
-		if guestEvent == "release" && guestState == "end" {
-			return hooks.QemuReleaseEnd(machine)
-		}
-		if guestEvent == "migrate" && guestState == "begin" {
-			return hooks.QemuMigrateBegin(machine)
-		}
-		if guestEvent == "restore" && guestState == "begin" {
-			return hooks.QemuRestoreBegin(machine)
-		}
-		if guestEvent == "reconnect" && guestState == "begin" {
-			return hooks.QemuReconnectBegin(machine)
-		}
-		if guestEvent == "attach" && guestState == "begin" {
-			return hooks.QemuAttachBegin(machine)
-		}
+		return QemuAction(guestName, guestEvent, guestState)
 	}
 
 	// Unknown command

@@ -15,12 +15,21 @@ type Specs = libvirtxml.Domain
 type VirtualMachine struct {
 	Name   string   `json:"name"`
 	UUID   string   `json:"uuid"`
+	Status string   `json:"status"`
 	CPUSet []string `json:"cpuSet"`
 	PCISet []string `json:"pciSet"`
 	USBSet []string `json:"usbSet"`
 	XML    string   `json:"-"`
 	Specs  Specs    `json:"-"`
 }
+
+// Virtual machine status constants
+const STATUS_PREPARING = "preparing"
+const STATUS_STARTING = "starting"
+const STATUS_RUNNING = "running"
+const STATUS_STOPPING = "stopping"
+const STATUS_SHUTOFF = "shutoff"
+const STATUS_UNKNOWN = "unknown"
 
 // ReadVirtualMachineXMLFromStdin reads data from stdin and returns its content
 func ReadVirtualMachineXMLFromStdin() (string, error) {
@@ -65,6 +74,7 @@ func ReadVirtualMachine(guestName string, fromStdin bool) (*VirtualMachine, erro
 	machine := &VirtualMachine{
 		Name:   "",
 		UUID:   "",
+		Status: STATUS_UNKNOWN,
 		CPUSet: []string{},
 		PCISet: []string{},
 		USBSet: []string{},
