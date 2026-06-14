@@ -3,6 +3,7 @@ package hooks
 import (
 	"fmt"
 	"os/exec"
+	"slices"
 	"strings"
 
 	"github.com/mateussouzaweb/libvirt-hooks/packages/state"
@@ -42,16 +43,44 @@ func USBHandleAction(action string, busNumber string, devNumber string, product 
 		return fmt.Errorf("error reading temporary state: %w", err)
 	}
 
-	// If there is no state date or no active VMs running, skip processing
+	// If there is no state data or no tracked VMs, skip processing
 	if !stateTmp.Populated || len(stateTmp.VMs) == 0 {
 		return nil
 	}
 
-	// Redirect USB to the first running VM
-	runningVM := stateTmp.VMs[0]
-	target := runningVM.Name
+	// Detect PCI device that is parent of the USB device
+	PCIDevice := ""
+	for _, usb := range stateTmp.USBs {
+		if usb.BusNumber == busNumber && usb.DevNumber == devNumber {
+			PCIDevice = usb.Parent
+			break
+		}
+		if usb.Vendor == vendorID && usb.Product == productID {
+			PCIDevice = usb.Parent
+			break
+		}
+	}
+
+	// Check if there is a running VM can be targeted for USB actions
+	// When the VM passthrough the PCI device, we can skip udev actions
+	targetVM := &system.VirtualMachine{}
+	for _, vm := range stateTmp.VMs {
+		if vm.Status != system.STATUS_RUNNING {
+			continue
+		}
+		if !slices.Contains(vm.PCISet, PCIDevice) {
+			targetVM = vm
+			break
+		}
+	}
+
+	// Is there is no valid target VM, skip processing
+	if targetVM.Name == "" {
+		return nil
+	}
 
 	// Log the USB event and intended action
+	target := targetVM.Name
 	details := fmt.Sprintf("action=%s bus=%s dev=%s product=%s", action, busNumber, devNumber, product)
 	system.WriteLog(system.LOG_NOTICE, "qemu-hooks", fmt.Sprintf("performing usb action for VM %s %s", target, details))
 
