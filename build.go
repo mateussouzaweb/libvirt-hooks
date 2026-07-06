@@ -14,11 +14,11 @@ func main() {
 
 	// Create the build script
 	// Will build binaries for both architectures
-	script := `mkdir -p bin/; \
+	script := `mkdir -p ./bin/; \
 	export GOOS=linux; export GOARCH=amd64; \
-	go build -o bin/qemu-amd64 cmd/qemu/main.go; \
+	go build -buildvcs=false -o ./bin/qemu-amd64 ./cmd/qemu; \
 	export GOOS=linux; export GOARCH=arm64; \
-	go build -o bin/qemu-arm64 cmd/qemu/main.go`
+	go build -buildvcs=false -o ./bin/qemu-arm64 ./cmd/qemu`
 
 	cmd := exec.Command("bash", "-c", script)
 	cmd.Env = os.Environ()
