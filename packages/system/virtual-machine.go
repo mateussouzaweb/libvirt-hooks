@@ -52,20 +52,19 @@ func ReadVirtualMachineXMLFromStdin() (string, error) {
 func ReadVirtualMachineXMLFromFile(guestName string) (string, error) {
 
 	xmlPath := fmt.Sprintf("/etc/libvirt/qemu/%s.xml", guestName)
-	_, err := os.Stat(xmlPath)
-	if err != nil && !os.IsNotExist(err) {
+	xmlExists, err := FileExists(xmlPath)
+	if err != nil {
 		return "", fmt.Errorf("error occurred while checking VM file: %v", err)
-	}
-	if os.IsNotExist(err) {
+	} else if !xmlExists {
 		return "", nil
 	}
 
-	content, err := os.ReadFile(xmlPath)
+	xmlContent, err := os.ReadFile(xmlPath)
 	if err != nil {
 		return "", fmt.Errorf("error occurred while reading VM file: %v", err)
 	}
 
-	return string(content), nil
+	return string(xmlContent), nil
 }
 
 // ReadVirtualMachine reads virtual machine information from stdin or XML file

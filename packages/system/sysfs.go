@@ -18,16 +18,14 @@ func FindSysFSFolders(pattern string) ([]string, error) {
 
 	// Check on each detected match
 	for _, path := range matches {
-		pathInfo, err := os.Stat(path)
-		if err != nil && !os.IsNotExist(err) {
-			return results, fmt.Errorf("error checking for folder at %s: %w", pathInfo, err)
-		} else if os.IsNotExist(err) {
+		exists, err := FolderExists(path)
+		if err != nil {
+			return results, fmt.Errorf("error checking for folder at %s: %w", path, err)
+		} else if !exists {
 			continue
-		} else if !pathInfo.IsDir() {
-			continue
+		} else {
+			results = append(results, path)
 		}
-
-		results = append(results, path)
 	}
 
 	return results, nil
@@ -45,16 +43,14 @@ func FindSysFSFiles(pattern string) ([]string, error) {
 	// Check on each detected match
 	// We accept regular files and symlinks
 	for _, path := range matches {
-		pathInfo, err := os.Stat(path)
-		if err != nil && !os.IsNotExist(err) {
-			return results, fmt.Errorf("error checking for file at %s: %w", pathInfo, err)
-		} else if os.IsNotExist(err) {
+		exists, err := FileExists(path)
+		if err != nil {
+			return results, fmt.Errorf("error checking for file at %s: %w", path, err)
+		} else if !exists {
 			continue
-		} else if pathInfo.IsDir() {
-			continue
+		} else {
+			results = append(results, path)
 		}
-
-		results = append(results, path)
 	}
 
 	return results, nil
@@ -63,13 +59,11 @@ func FindSysFSFiles(pattern string) ([]string, error) {
 // ReadSysFSValue reads the value of sysfs content
 func ReadSysFSValue(path string) (string, error) {
 
-	pathInfo, err := os.Stat(path)
-	if err != nil && !os.IsNotExist(err) {
+	exists, err := FileExists(path)
+	if err != nil {
 		return "", fmt.Errorf("error checking file at %s: %w", path, err)
-	} else if os.IsNotExist(err) {
+	} else if !exists {
 		return "", fmt.Errorf("file not found at %s", path)
-	} else if pathInfo.IsDir() {
-		return "", fmt.Errorf("path is not a valid file at %s", path)
 	}
 
 	value, err := os.ReadFile(path)

@@ -2,7 +2,6 @@ package system
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 )
@@ -23,10 +22,10 @@ func ReadDriver(device *Device) (*Driver, error) {
 
 	// Check for the presence of the driver path
 	driverPath := filepath.Join(device.Path, "driver")
-	_, err := os.Stat(driverPath)
-	if err != nil && !os.IsNotExist(err) {
+	driverExists, err := FileExists(driverPath)
+	if err != nil {
 		return driver, fmt.Errorf("error checking driver for device at %s: %w", device.Path, err)
-	} else if os.IsNotExist(err) {
+	} else if !driverExists {
 		return driver, nil
 	}
 

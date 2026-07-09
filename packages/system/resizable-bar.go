@@ -3,7 +3,6 @@ package system
 import (
 	"fmt"
 	"math/bits"
-	"os"
 )
 
 // ResizableBARSize represents the size of the resizable BAR in MB and its corresponding key
@@ -38,12 +37,10 @@ func ReadResizableBAR(GPU *GPU) (*ResizableBAR, error) {
 	}
 
 	// Check for the presence of the path
-	pathInfo, err := os.Stat(path)
-	if err != nil && !os.IsNotExist(err) {
+	pathExists, err := FileExists(path)
+	if err != nil {
 		return BAR, fmt.Errorf("error checking file at %s: %w", path, err)
-	} else if os.IsNotExist(err) {
-		return BAR, nil
-	} else if pathInfo.IsDir() {
+	} else if !pathExists {
 		return BAR, nil
 	}
 

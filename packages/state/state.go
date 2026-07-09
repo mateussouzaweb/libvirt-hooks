@@ -43,11 +43,10 @@ func NewState() *State {
 func ReadState(source string) (*State, error) {
 
 	state := NewState()
-
-	_, err := os.Stat(source)
-	if err != nil && !os.IsNotExist(err) {
+	exists, err := system.FileExists(source)
+	if err != nil {
 		return state, fmt.Errorf("error checking state file: %w", err)
-	} else if os.IsNotExist(err) {
+	} else if !exists {
 		return state, nil
 	}
 
@@ -83,10 +82,10 @@ func WriteState(state *State, destination string) error {
 // RemoveState removes the state file if it exists
 func RemoveState(source string) error {
 
-	_, err := os.Stat(source)
-	if err != nil && !os.IsNotExist(err) {
+	exists, err := system.FileExists(source)
+	if err != nil {
 		return fmt.Errorf("error checking state file: %w", err)
-	} else if os.IsNotExist(err) {
+	} else if !exists {
 		return nil
 	}
 
