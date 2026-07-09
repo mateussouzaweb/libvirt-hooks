@@ -89,16 +89,30 @@ func GetUSBs(device *Device) ([]*USB, error) {
 			return USBs, fmt.Errorf("error reading product ID for USB device: %w", err)
 		}
 
+		manufacturer := ""
 		manufacturerPath := filepath.Join(USBPath, "manufacturer")
-		manufacturer, err := ReadSysFSValue(manufacturerPath)
+		manufacturerExist, err := FileExist(manufacturerPath)
+
 		if err != nil {
 			return USBs, fmt.Errorf("error reading manufacturer for USB device: %w", err)
+		} else if manufacturerExist {
+			manufacturer, err = ReadSysFSValue(manufacturerPath)
+			if err != nil {
+				return USBs, fmt.Errorf("error reading manufacturer for USB device: %w", err)
+			}
 		}
 
+		productName := ""
 		productNamePath := filepath.Join(USBPath, "product")
-		productName, err := ReadSysFSValue(productNamePath)
+		productNameExist, err := FileExist(productNamePath)
+
 		if err != nil {
 			return USBs, fmt.Errorf("error reading product name for USB device: %w", err)
+		} else if productNameExist {
+			productName, err = ReadSysFSValue(productNamePath)
+			if err != nil {
+				return USBs, fmt.Errorf("error reading product name for USB device: %w", err)
+			}
 		}
 
 		// Skip entries that don't have valid information
