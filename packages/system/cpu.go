@@ -12,6 +12,8 @@ import (
 type CPU struct {
 	Number          string `json:"number"`
 	Path            string `json:"path"`
+	Die             string `json:"die"`
+	Siblings        string `json:"siblings"`
 	ScalingGovernor string `json:"scalingGovernor"`
 }
 
@@ -32,13 +34,23 @@ func GetCPUs() ([]*CPU, error) {
 		CPUs = append(CPUs, &CPU{
 			Number:          CPUNumber,
 			Path:            CPUPath,
+			Die:             "0",
+			Siblings:        "",
 			ScalingGovernor: "",
 		})
 	}
 
-	// Read scaling governor off each CPU
+	// Read die, siblings and scaling governor of each CPU
 	for _, CPU := range CPUs {
-		err := ReadCPUScalingGovernor(CPU)
+		err := ReadCPUDie(CPU)
+		if err != nil {
+			return CPUs, err
+		}
+		err = ReadCPUSiblings(CPU)
+		if err != nil {
+			return CPUs, err
+		}
+		err = ReadCPUScalingGovernor(CPU)
 		if err != nil {
 			return CPUs, err
 		}
@@ -52,6 +64,40 @@ func GetCPUs() ([]*CPU, error) {
 	})
 
 	return CPUs, nil
+}
+
+// ReadCPUDie checks for the die for a given CPU and set its value if found
+func ReadCPUDie(CPU *CPU) error {
+
+	if CPU.Path == "" {
+		return nil
+	}
+
+	diePath := fmt.Sprintf("%s/topology/die_id", CPU.Path)
+	dieValue, err := ReadSysFSValue(diePath)
+	if err != nil {
+		return fmt.Errorf("error reading die for CPU %s: %w", CPU.Number, err)
+	}
+
+	CPU.Die = dieValue
+	return nil
+}
+
+// ReadCPUSiblings checks for the siblings for a given CPU and set its value if found
+func ReadCPUSiblings(CPU *CPU) error {
+
+	if CPU.Path == "" {
+		return nil
+	}
+
+	siblingsPath := fmt.Sprintf("%s/topology/thread_siblings_list", CPU.Path)
+	siblingsValue, err := ReadSysFSValue(siblingsPath)
+	if err != nil {
+		return fmt.Errorf("error reading siblings for CPU %s: %w", CPU.Number, err)
+	}
+
+	CPU.Siblings = siblingsValue
+	return nil
 }
 
 // ReadCPUScalingGovernor checks for the scaling governor for a given CPU and set its value if found
