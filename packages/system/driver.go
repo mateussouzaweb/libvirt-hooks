@@ -22,7 +22,7 @@ func ReadDriver(device *Device) (*Driver, error) {
 
 	// Check for the presence of the driver path
 	driverPath := filepath.Join(device.Path, "driver")
-	driverExists, err := FileExists(driverPath)
+	driverExists, err := FolderExists(driverPath)
 	if err != nil {
 		return driver, fmt.Errorf("error checking driver for device at %s: %w", device.Path, err)
 	} else if !driverExists {
